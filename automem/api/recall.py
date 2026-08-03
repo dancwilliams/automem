@@ -17,6 +17,7 @@ from automem.config import (
     RECALL_ADAPTIVE_FLOOR,
     RECALL_EXCLUDED_TYPES,
     RECALL_EXPANSION_LIMIT,
+    RECALL_KEYWORD_OVERFETCH,
     RECALL_METADATA_SEARCH_ENABLED,
     RECALL_MIN_SCORE,
     RECALL_RECENCY_BIAS,
@@ -1996,14 +1997,39 @@ def handle_recall(
                 ]
         local_results.extend(vector_matches)
 
-        remaining_slots = max(0, per_query_limit - len(local_results))
-        if remaining_slots and graph is not None:
+        # Content keyword search is a candidate channel, not a leftover-slot
+        # filler. The old gate (`remaining_slots`) never fired once vector
+        # over-fetch landed — len(local_results) >= per_query_limit whenever
+        # Qdrant fills a page — so exact-token queries (error codes, env vars,
+        # filenames) could never surface content that a CONTAINS trivially
+        # finds. Candidates are deduped against the vector pool via the seen
+        # set and re-ranked by the same blended scoring as everything else.
+        # RECALL_KEYWORD_OVERFETCH=0 restores the legacy fill-only behavior.
+        # An empty or "*" query is routed to trending results by
+        # graph_keyword_search, not to a content match; those stay on the legacy
+        # fill-only path so trending never gets appended to a page that vector
+        # already filled.
+        keyword_query = (query_str or "").strip()
+        keyword_budget = 0
+        if graph is not None:
+            if RECALL_KEYWORD_OVERFETCH > 0 and keyword_query and keyword_query != "*":
+                keyword_budget = max(
+                    per_query_limit,
+                    min(
+                        per_query_limit * RECALL_KEYWORD_OVERFETCH,
+                        RECALL_VECTOR_FETCH_CAP,
+                    ),
+                )
+            else:
+                # Legacy behavior: only fill slots vector left empty.
+                keyword_budget = max(0, per_query_limit - len(local_results))
+        if keyword_budget:
             graph_seen = set(local_seen)
             graph_seen.update(vector_seen)
             graph_matches = graph_keyword_search(
                 graph,
                 query_str,
-                remaining_slots,
+                keyword_budget,
                 graph_seen,
                 start_time=start_time,
                 end_time=end_time,
@@ -2011,7 +2037,7 @@ def handle_recall(
                 tag_mode=tag_mode,
                 tag_match=tag_match,
             )
-            local_results.extend(graph_matches[:remaining_slots])
+            local_results.extend(graph_matches[:keyword_budget])
 
         if (
             graph is not None
