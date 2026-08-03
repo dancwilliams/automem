@@ -208,19 +208,35 @@ def _compute_metadata_score(
     vector_component = (
         result.get("match_score", 0.0) if result.get("match_type") == "vector" else 0.0
     )
-    keyword_component = 0.0
-    if result.get("match_type") in {"keyword", "trending"}:
-        # Producers normalize, but no channel may exceed the 0-1 component
-        # contract (issue #190) — an unclamped score also defeats the
-        # RECALL_RELEVANCE_GATE evidence check.
-        keyword_component = min(1.0, float(result.get("match_score", 0.0) or 0.0))
-    elif tokens:
+    # How much of the query the memory's own text actually accounts for. This is
+    # a property of the memory, not of the channel that surfaced it.
+    content_overlap = 0.0
+    if tokens:
         content_lower = str(memory.get("content") or "").lower()
         if content_lower:
             content_tokens = _content_match_tokens(content_lower)
             if content_tokens:
                 content_hits = sum(1 for token in tokens if token in content_tokens)
-                keyword_component = content_hits / len(tokens)
+                content_overlap = content_hits / len(tokens)
+
+    keyword_component = content_overlap
+    if result.get("match_type") in {"keyword", "trending"}:
+        # The channel score is a floor, never a ceiling. graph_keyword_search
+        # normalizes by `3 * len(keywords) + 3`, budgeting a tag hit per keyword
+        # plus a phrase-tag hit, so a content-only match — the ordinary case for
+        # an identifier, which rarely appears in tags — is capped at 4/6 = 0.667
+        # however exact it is. Taking the max keeps the channel's tag-derived
+        # evidence (which content overlap cannot see) while letting a verbatim
+        # content match score what it is worth, so the same memory no longer
+        # scores 1.0 or 0.667 for identical evidence depending on whether vector
+        # or keyword search happened to deliver it.
+        #
+        # Producers normalize, but no channel may exceed the 0-1 component
+        # contract (issue #190) — an unclamped score also defeats the
+        # RECALL_RELEVANCE_GATE evidence check.
+        keyword_component = max(
+            content_overlap, min(1.0, float(result.get("match_score", 0.0) or 0.0))
+        )
 
     metadata_component = (
         float(result.get("match_score", 0.0) or 0.0)
