@@ -111,7 +111,19 @@ def test_result_passes_filters_keeps_normal_types() -> None:
 def test_graph_keyword_search_emits_artifact_exclusion() -> None:
     _configure_helpers()
     graph = _ScriptedGraph([])  # rows irrelevant; we inspect the emitted Cypher
-    _graph_keyword_search(graph, "berlin benefits", limit=10, seen_ids=set())
+    # Pass the full kwarg set the recall orchestrator supplies, so this test
+    # also pins the callable's signature against drift at the injection seam.
+    _graph_keyword_search(
+        graph,
+        "berlin benefits",
+        limit=10,
+        seen_ids=set(),
+        start_time=None,
+        end_time=None,
+        tag_filters=None,
+        tag_mode="any",
+        tag_match="prefix",
+    )
 
     assert graph.queries, "expected a Cypher query to be issued"
     issued_query, params = graph.queries[-1]
