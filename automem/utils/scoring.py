@@ -134,6 +134,33 @@ def _compute_context_bonus(
     return bonus
 
 
+def _content_match_tokens(content_lower: str) -> set:
+    """Tokenize memory content the way ``_extract_keywords`` tokenizes a query.
+
+    The query tokenizer uses ``[A-Za-z0-9_\\-]+``, so identifiers survive whole:
+    ``CONSOLIDATION_BASE_DECAY_RATE`` is one token. Content used to be tokenized
+    with ``\\b[a-z0-9]+\\b``, which can never produce that token — and because
+    ``_`` is itself a word character, that pattern found no ``\\b`` boundary
+    inside an underscored identifier and so produced *no* tokens for it at all.
+    A memory containing the queried identifier verbatim therefore earned zero
+    keyword credit.
+
+    Emit both the joined identifier and its ``_``/``-`` separated parts, so an
+    exact identifier query matches and a query for one word of it still does.
+    The result is a strict superset of the old token set; no match that worked
+    before can stop working.
+    """
+    tokens: set = set()
+    for word in re.findall(r"[a-z0-9_\-]+", content_lower):
+        cleaned = word.strip("-_")
+        if not cleaned:
+            continue
+        tokens.add(cleaned)
+        # Sub-parts: "bg-green-800" -> bg, green, 800.
+        tokens.update(re.findall(r"[a-z0-9]+", cleaned))
+    return tokens
+
+
 def _compute_metadata_score(
     result: Dict[str, Any],
     query: str,
@@ -190,7 +217,7 @@ def _compute_metadata_score(
     elif tokens:
         content_lower = str(memory.get("content") or "").lower()
         if content_lower:
-            content_tokens = set(re.findall(r"\b[a-z0-9]+\b", content_lower))
+            content_tokens = _content_match_tokens(content_lower)
             if content_tokens:
                 content_hits = sum(1 for token in tokens if token in content_tokens)
                 keyword_component = content_hits / len(tokens)
