@@ -497,12 +497,17 @@ def test_compute_metadata_score_leaves_keyword_zero_without_content_hits():
     assert components["keyword"] == 0.0
 
 
+# The next two pin that a channel score survives instead of being recomputed
+# away. Their content no longer repeats the query tokens: the channel score is
+# now a floor rather than an exact pass-through, so overlapping content would
+# legitimately score higher than the channel reported. See
+# tests/test_keyword_evidence_parity.py for the max() behavior itself.
 def test_compute_metadata_score_preserves_keyword_match_score_for_keyword_results():
     _score, components = _compute_metadata_score(
         {
             "match_type": "keyword",
             "match_score": 0.42,
-            "memory": {"content": "AutoJack recall debugging notes"},
+            "memory": {"content": "Unrelated debugging notes"},
         },
         "AutoJack recall",
         ["autojack", "recall"],
@@ -516,7 +521,7 @@ def test_compute_metadata_score_preserves_keyword_match_score_for_trending_resul
         {
             "match_type": "trending",
             "match_score": 0.33,
-            "memory": {"content": "AutoJack recall debugging notes"},
+            "memory": {"content": "Unrelated debugging notes"},
         },
         "AutoJack recall",
         ["autojack", "recall"],
