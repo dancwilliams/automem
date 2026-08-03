@@ -158,6 +158,14 @@ RECALL_VECTOR_OVERFETCH = max(1, int(os.getenv("RECALL_VECTOR_OVERFETCH", "4")))
 # user-facing RECALL_MAX_LIMIT so over-fetch isn't strangled by the response cap.
 RECALL_VECTOR_FETCH_CAP = max(1, int(os.getenv("RECALL_VECTOR_FETCH_CAP", "200")))
 
+# Content keyword-search candidate budget, as a multiplier of the requested
+# page size (mirrors RECALL_VECTOR_OVERFETCH; shares RECALL_VECTOR_FETCH_CAP).
+# The keyword channel must run unconditionally: it was previously gated behind
+# leftover result slots, which never exist once vector over-fetch fills the
+# pool, so exact-token queries (error codes, env vars, filenames) could never
+# reach the re-ranker. Set to 0 to restore the legacy fill-only behavior.
+RECALL_KEYWORD_OVERFETCH = max(0, int(os.getenv("RECALL_KEYWORD_OVERFETCH", "2")))
+
 # Internal artifact memory types that must never surface in user-facing /recall
 # results or vector sync accounting (e.g. consolidation cluster summaries).
 # Comma-separated env override.
