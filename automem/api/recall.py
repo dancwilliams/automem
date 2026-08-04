@@ -2605,11 +2605,26 @@ def handle_recall(
             "injected": any_context_injected,
         }
 
+    # Keyword-channel observability. The content keyword channel is only worth
+    # carrying if it contributes to real traffic, not just to the eval suite —
+    # and if a future upstream rebase drops the fix, these fall to zero rather
+    # than raising anything, so they are the standing regression alarm.
+    keyword_sourced = sum(1 for res in results if res.get("match_type") == "keyword")
+    keyword_component_max = max(
+        (float((res.get("score_components") or {}).get("keyword") or 0.0) for res in results),
+        default=0.0,
+    )
+
     logger.info(
         "recall_complete",
         extra={
             "query": query_text[:100] if query_text else "",
             "results": len(deduped_results),
+            "returned": len(results),
+            "keyword_results": keyword_sourced,
+            "keyword_top1": bool(results) and results[0].get("match_type") == "keyword",
+            "keyword_component_max": round(keyword_component_max, 3),
+            "top_score": round(float(results[0].get("final_score") or 0.0), 4) if results else None,
             "latency_ms": response["query_time_ms"],
             "vector_enabled": qdrant_client is not None,
             "vector_matches": total_vector_matches,
