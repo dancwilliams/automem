@@ -155,6 +155,7 @@ def init_embedding_provider(
                 dimension=vector_size,
                 timeout=timeout,
                 max_retries=max_retries,
+                keep_alive=os.getenv("OLLAMA_KEEP_ALIVE") or None,
             )
             logger.info("Embedding provider: %s", state.embedding_provider.provider_name())
             return
@@ -234,6 +235,7 @@ def init_embedding_provider(
                     dimension=vector_size,
                     timeout=timeout,
                     max_retries=max_retries,
+                    keep_alive=os.getenv("OLLAMA_KEEP_ALIVE") or None,
                 )
                 logger.info(
                     "Embedding provider (auto-selected): %s",
