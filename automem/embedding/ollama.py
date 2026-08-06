@@ -24,6 +24,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         dimension: int = 768,
         timeout: float = 30.0,
         max_retries: int = 2,
+        keep_alive: Optional[str] = None,
     ):
         """Initialize Ollama embedding provider.
 
@@ -33,23 +34,38 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
             dimension: Expected embedding dimension
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for transient errors
+            keep_alive: How long Ollama should keep the model resident after a
+                request (e.g. "30m", "1h", "-1" for indefinitely). ``None``
+                omits the field entirely, leaving Ollama's own default (5m).
         """
         self.base_url = base_url.rstrip("/")
         self.model = model
         self._dimension = dimension
         self.timeout = timeout
         self.max_retries = max_retries
+        self.keep_alive = keep_alive or None
         self.session = requests.Session()
         logger.info(
-            "Ollama embedding provider initialized (model=%s, dimensions=%d, base_url=%s)",
+            "Ollama embedding provider initialized (model=%s, dimensions=%d, base_url=%s, keep_alive=%s)",
             model,
             dimension,
             self.base_url,
+            self.keep_alive or "ollama default",
         )
 
     def _request_embedding(self, text: str) -> List[float]:
         url = f"{self.base_url}/api/embeddings"
         payload = {"model": self.model, "prompt": text}
+        # Ollama evicts an idle model after 5 minutes by default and reloads it
+        # on the next call. For an embedding model that is a per-request cliff,
+        # not a warm-up: measured on a 4GB qwen3-embedding:0.6b, a cold call
+        # costs ~3.3s against ~0.10s warm. Recall traffic that is bursty and
+        # hours apart pays that on nearly every query, so the tax lands on the
+        # first recall of every session. Sending keep_alive per request keeps
+        # the control here rather than requiring OLLAMA_KEEP_ALIVE on the
+        # Ollama host, which would affect every other consumer on that box.
+        if self.keep_alive:
+            payload["keep_alive"] = self.keep_alive
         last_error: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
             try:
