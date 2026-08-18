@@ -61,6 +61,9 @@ def configure_logging(*, level: int = logging.INFO) -> Any:
         stdout_handler.setFormatter(StructuredFormatter(_LOG_FORMAT))
         framework_logger.addHandler(stdout_handler)
         framework_logger.setLevel(level)
+        # Without this, records also propagate to the root handler above and
+        # every werkzeug/flask line is written to stdout twice.
+        framework_logger.propagate = False
 
     return logger
 
