@@ -418,9 +418,17 @@ class MemoryConsolidator:
                 confidence = 0.0
 
                 if mem1.type == "Decision" and mem2.type == "Decision":
-                    if similarity < 0.3:
-                        connection_type = "CONTRASTS_WITH"
-                        confidence = 0.6
+                    # Cosine cannot separate "chose X" from "chose not-X" —
+                    # both embed near-identically. High similarity means the
+                    # two decisions share a subject, i.e. a contradiction
+                    # *candidate* for review, never a contradiction to assert.
+                    # The old rule fired at similarity < 0.3, which by
+                    # construction only ever matched unrelated pairs, and was
+                    # remapped onto a real CONTRADICTS edge.
+                    if similarity > 0.7:
+                        connection_type = "DISCOVERED"
+                        connection_kind = "same_subject_decisions"
+                        confidence = 0.5
                 elif {mem1.type, mem2.type} == {
                     "Insight",
                     "Pattern",
@@ -878,8 +886,6 @@ class MemoryConsolidator:
                             str(assoc.get("type") or "RELATES_TO"),
                             {"kind": assoc.get("kind")} if assoc.get("kind") else {},
                         )
-                        if rel_type == "CONTRASTS_WITH":
-                            rel_type = "CONTRADICTS"
                         if rel_type not in FILTERABLE_RELATIONS:
                             rel_type = "RELATES_TO"
 

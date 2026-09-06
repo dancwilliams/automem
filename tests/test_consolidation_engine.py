@@ -72,14 +72,41 @@ def test_discover_creative_associations_builds_connections(dummy_graph) -> None:
     graph = dummy_graph
     graph.sample_rows = [
         ["decision-a", "Chose approach A", "Decision", [1.0, 0.0, 0.0], iso_days_ago(3)],
-        ["decision-b", "Chose approach B", "Decision", [0.0, 1.0, 0.0], iso_days_ago(4)],
+        ["decision-b", "Chose approach B", "Decision", [0.95, 0.31, 0.0], iso_days_ago(4)],
         ["insight", "Insight about A", "Insight", [0.9, 0.1, 0.0], iso_days_ago(5)],
     ]
 
     consolidator = MemoryConsolidator(graph)
     associations = consolidator.discover_creative_associations(sample_size=3)
 
-    assert any(item["type"] == "CONTRASTS_WITH" for item in associations)
+    # Two decisions on the same subject are a contradiction *candidate*.
+    candidates = [a for a in associations if a.get("kind") == "same_subject_decisions"]
+    assert len(candidates) == 1
+    assert candidates[0]["type"] == "DISCOVERED"
+    assert {candidates[0]["memory1_id"], candidates[0]["memory2_id"]} == {
+        "decision-a",
+        "decision-b",
+    }
+
+
+def test_dissimilar_decisions_never_contradict(dummy_graph) -> None:
+    """Regression: unrelated decisions used to be asserted as CONTRADICTS.
+
+    The old rule fired at cosine < 0.3, which can only match pairs about
+    different subjects — the inverse of what a contradiction is.
+    """
+    graph = dummy_graph
+    graph.sample_rows = [
+        ["decision-a", "Chose Postgres for the API", "Decision", [1.0, 0.0, 0.0], iso_days_ago(3)],
+        ["decision-b", "Hired a second SRE", "Decision", [0.0, 1.0, 0.0], iso_days_ago(4)],
+    ]
+
+    consolidator = MemoryConsolidator(graph)
+    associations = consolidator.discover_creative_associations(sample_size=2)
+
+    assert not any(
+        a["type"] in {"CONTRADICTS", "CONTRASTS_WITH"} for a in associations
+    ), "orthogonal decisions must not be marked as contradicting"
 
 
 def test_consolidate_creative_writes_discovered_edges(dummy_graph) -> None:
