@@ -10,6 +10,7 @@ from automem.config import (
     SEARCH_RECENCY_WINDOW_DAYS,
     SEARCH_TAG_SCORE_TOKEN_CAP,
     SEARCH_WEIGHT_CONFIDENCE,
+    SEARCH_WEIGHT_CONTEXT,
     SEARCH_WEIGHT_EXACT,
     SEARCH_WEIGHT_IMPORTANCE,
     SEARCH_WEIGHT_KEYWORD,
@@ -289,6 +290,13 @@ def _compute_metadata_score(
     context_bonus = _compute_context_bonus(
         result, memory, tag_terms, metadata_terms, context_profile
     )
+    # Explicit caller context keeps full strength; context merely inferred from a
+    # style word in the query text is damped so it tiebreaks instead of overriding.
+    context_weight = (
+        SEARCH_WEIGHT_CONTEXT
+        if (context_profile or {}).get("inferred_style_only")
+        else 1.0
+    )
 
     final = (
         SEARCH_WEIGHT_VECTOR * vector_component
@@ -301,7 +309,7 @@ def _compute_metadata_score(
         + SEARCH_WEIGHT_RECENCY * recency_score
         + SEARCH_WEIGHT_EXACT * exact_match
         + SEARCH_WEIGHT_RELEVANCE * relevance_score
-        + context_bonus
+        + context_weight * context_bonus
     )
 
     components = {

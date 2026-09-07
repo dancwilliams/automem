@@ -490,6 +490,12 @@ SEARCH_WEIGHT_RECENCY = float(os.getenv("SEARCH_WEIGHT_RECENCY", "0.1"))
 SEARCH_WEIGHT_EXACT = float(os.getenv("SEARCH_WEIGHT_EXACT", "0.2"))
 SEARCH_WEIGHT_RELATION = float(os.getenv("SEARCH_WEIGHT_RELATION", "0.25"))
 SEARCH_WEIGHT_RELEVANCE = float(os.getenv("SEARCH_WEIGHT_RELEVANCE", "0.0"))
+# Inferred/caller-supplied context bonus (style focus, priority tags/types/ids).
+# Was previously added to the total UNWEIGHTED while every other channel is
+# multiplied by its SEARCH_WEIGHT_*, so a 0.70 style bonus outscored a perfect
+# vector match (max 0.35) by 2x and inverted semantic ranking. Weighted here so
+# it tiebreaks rather than overrides. Set to 0 to disable context boosting.
+SEARCH_WEIGHT_CONTEXT = float(os.getenv("SEARCH_WEIGHT_CONTEXT", "0.25"))
 
 
 def _positive_or_default(raw: str, default: float) -> float:

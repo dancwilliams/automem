@@ -1086,8 +1086,19 @@ def _build_context_profile(
         style_focus = True
 
     query_tokens = _tokenize_lower(query_text)
-    if query_tokens & CONTEXT_STYLE_KEYWORDS:
+    query_style_hit = bool(query_tokens & CONTEXT_STYLE_KEYWORDS)
+    if query_style_hit:
         style_focus = True
+
+    # Style focus inferred purely from an incidental query word, with no context
+    # the caller actually asked for. "lint" in a query about a memory-graph lint
+    # pass is not a request for coding-style memories, so this bonus is damped by
+    # SEARCH_WEIGHT_CONTEXT at scoring time. Anything the caller supplied
+    # explicitly - context_tags, context_types, priority_ids, language, context -
+    # keeps full strength, because there the boost is the requested behaviour.
+    inferred_style_only = query_style_hit and not (
+        manual_tags or manual_types or manual_ids or language_hint or context_label
+    )
 
     if style_focus:
         priority_tags.update(DEFAULT_STYLE_PRIORITY_TAGS)
@@ -1113,6 +1124,7 @@ def _build_context_profile(
         "language": language_hint,
         "context_label": context_label,
         "require_injection": style_focus or bool(manual_tags),
+        "inferred_style_only": inferred_style_only,
     }
 
 
