@@ -682,7 +682,7 @@ export class AutoMemClient {
 // do not fit even with no results are dropped, and a json result too large to
 // show whole falls back to the compact shape. ID fetches (`memory_id`) are never
 // truncated — that is the documented way to retrieve a full record.
-const RECALL_CONTENT_PREVIEW_CHARS = 400;
+const DEFAULT_RECALL_PREVIEW_CHARS = 400;
 const RECALL_MAX_RELATIONS = 3;
 const RECALL_RELATION_SUMMARY_CHARS = 100;
 const RECALL_CHARS_PER_TOKEN = 2.5;
@@ -707,8 +707,8 @@ const ENVELOPE_DROP_ORDER = [
     'tags',
     'time_window',
 ];
-function resolveTokenBudget() {
-    const raw = process.env.AUTOMEM_RECALL_TOKEN_BUDGET;
+function resolvePositiveIntEnv(name, fallback) {
+    const raw = process.env[name];
     if (raw) {
         // Strict parse: reject non-numeric suffixes ("1200foo") and fractions.
         const parsed = Number(raw.trim());
@@ -716,15 +716,19 @@ function resolveTokenBudget() {
             return parsed;
         }
     }
-    return DEFAULT_RECALL_TOKEN_BUDGET;
+    return fallback;
+}
+function resolveTokenBudget() {
+    return resolvePositiveIntEnv('AUTOMEM_RECALL_TOKEN_BUDGET', DEFAULT_RECALL_TOKEN_BUDGET);
 }
 function capContent(content, budgeted) {
     const text = content ?? '';
-    if (!budgeted || text.length <= RECALL_CONTENT_PREVIEW_CHARS) {
+    const previewChars = resolvePositiveIntEnv('AUTOMEM_RECALL_PREVIEW_CHARS', DEFAULT_RECALL_PREVIEW_CHARS);
+    if (!budgeted || text.length <= previewChars) {
         return { preview: text, truncated: false, chars: text.length };
     }
     return {
-        preview: `${text.slice(0, RECALL_CONTENT_PREVIEW_CHARS)}…`,
+        preview: `${text.slice(0, previewChars)}…`,
         truncated: true,
         chars: text.length,
     };

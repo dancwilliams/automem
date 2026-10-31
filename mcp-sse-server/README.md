@@ -11,5 +11,6 @@ Express service that bridges the AutoMem HTTP API to MCP over SSE.
 - `AUTOMEM_API_TOKEN` – Bearer token for AutoMem HTTP calls (required for MCP).
 - `PORT` (optional) – Listener port (default 8080).
 - `AUTOMEM_RECALL_TOKEN_BUDGET` (optional) – Estimated-token budget for one `recall_memory` response (default 18000). Same variable and default as the stdio package.
+- `AUTOMEM_RECALL_PREVIEW_CHARS` (optional) – Content preview length for the `text`, `items` and `detailed` formats (default 400). Remote bridge only. The token budget still applies, so a longer preview returns fewer results from a large recall.
 
 > **Note**: `AUTOMEM_ENDPOINT` is still supported as a legacy fallback but `AUTOMEM_API_URL` is preferred.

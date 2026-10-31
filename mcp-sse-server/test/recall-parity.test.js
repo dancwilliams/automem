@@ -404,6 +404,39 @@ test('ranked recall applies the same response budget', async () => {
   }
 });
 
+// Remote-only knob, so this reads the bridge's result and skips the parity assertion.
+test('AUTOMEM_RECALL_PREVIEW_CHARS moves the bridge preview cap; junk keeps the default', async () => {
+  const content = 'x'.repeat(1000);
+  const recall = (params) => ({
+    ...richRecallResponse(params),
+    results: [{
+      id: 'preview-1',
+      final_score: 1,
+      match_type: 'vector',
+      memory: { id: 'preview-1', content, tags: ['parity'], importance: 0.5, timestamp: '2026-09-01T10:00:00+00:00' },
+    }],
+    count: 1,
+  });
+  const previewWith = async (value) => {
+    const { remoteResult } = await callBoth(
+      { query: 'preview' },
+      { recall, env: { AUTOMEM_RECALL_PREVIEW_CHARS: value } }
+    );
+    return remoteResult.structuredContent.results[0];
+  };
+
+  const wide = await previewWith('2000');
+  assert.equal(wide.content, content);
+  assert.equal(wide.content_truncated, undefined);
+
+  const narrow = await previewWith('100');
+  assert.equal(narrow.content, `${'x'.repeat(100)}…`);
+  assert.equal(narrow.content_truncated, true);
+
+  const junk = await previewWith('500foo');
+  assert.equal(junk.content, `${'x'.repeat(400)}…`);
+});
+
 
 test('ranked recall rejects ignored pagination without contacting the API', async () => {
   const run = await assertParity({ query: 'database', offset: 3 });

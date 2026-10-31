@@ -223,9 +223,9 @@ pass decides the mode:
   - `min_score` and `adaptive_floor`
   - `expand_respect_tags`
 
-The `text`, `items` and `detailed` formats show 400-character previews and stay
-within a response budget of 18,000 estimated tokens by default
-(`AUTOMEM_RECALL_TOKEN_BUDGET`). Fetch the full record by `memory_id`. Every
+The `text`, `items` and `detailed` formats show 400-character previews by default
+(`AUTOMEM_RECALL_PREVIEW_CHARS`) and stay within a response budget of 18,000
+estimated tokens by default (`AUTOMEM_RECALL_TOKEN_BUDGET`). Fetch the full record by `memory_id`. Every
 successful call also returns `structuredContent`. See
 [MCP_TRANSPORT_PARITY.md](MCP_TRANSPORT_PARITY.md) for how the two transports
 are kept in step.
