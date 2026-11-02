@@ -73,12 +73,12 @@ def _active_suppressed_memory_ids(graph: Any, memory_ids: List[str], now: dateti
         return set()
 
     try:
+        # Not UNWIND + {id: source_id}: see _query_state_replacements in api/recall.py.
         records = graph.query(
             """
-            UNWIND $ids AS source_id
-            MATCH (m:Memory {id: source_id})-[r]->(related:Memory)
-            WHERE type(r) IN $types
-            RETURN source_id, related.archived, related.t_valid, related.t_invalid
+            MATCH (m:Memory)-[r]->(related:Memory)
+            WHERE m.id IN $ids AND type(r) IN $types
+            RETURN m.id AS source_id, related.archived, related.t_valid, related.t_invalid
             """,
             {"ids": ordered_ids, "types": sorted(STATE_SUPPRESSING_RELATIONS)},
         )

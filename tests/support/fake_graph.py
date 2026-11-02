@@ -689,7 +689,7 @@ class FakeGraph:
             return FakeResult(rows[: int(params.get("limit") or len(rows) or 1)])
 
         if (
-            "UNWIND $ids AS source_id" in query
+            "WHERE m.id IN $ids AND type(r) IN $types" in query
             and "RETURN source_id" in query
             and "related" in query
         ):

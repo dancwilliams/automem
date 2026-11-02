@@ -286,7 +286,7 @@ class EntityFakeGraph(FakeGraph):
 
             return FakeResult([[FakeNode(ent)]])
 
-        if "UNWIND $ids AS source_id" in query and "related.archived" in query:
+        if "m.id IN $ids" in query and "related.archived" in query:
             source_ids = {str(memory_id) for memory_id in (params.get("ids") or [])}
             requested_types = {str(rel_type) for rel_type in (params.get("types") or [])}
             rows = []

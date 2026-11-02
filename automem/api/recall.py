@@ -511,11 +511,13 @@ def _query_state_replacements(
 ) -> Dict[str, Dict[str, Any]]:
     """Batch-load the first *active* replacement for each id via one supersession hop."""
     try:
+        # Not UNWIND + {id: source_id}: FalkorDB 6 applies that id filter after the
+        # traversal, so every id walks every edge and 40+ ids hit the 1000 ms timeout.
         records = graph.query(
             """
-            UNWIND $ids AS source_id
-            MATCH (m:Memory {id: source_id})-[r]->(related:Memory)
-            WHERE type(r) IN $types
+            MATCH (m:Memory)-[r]->(related:Memory)
+            WHERE m.id IN $ids AND type(r) IN $types
+            WITH m.id AS source_id, r, related
             RETURN source_id,
                    type(r) as relation_type,
                    coalesce(
