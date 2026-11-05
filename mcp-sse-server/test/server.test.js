@@ -687,6 +687,7 @@ test("POST /mcp without Accept header returns error", async () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: "Bearer test-token",
         // Missing Accept header
       },
       body: JSON.stringify({
@@ -701,6 +702,42 @@ test("POST /mcp without Accept header returns error", async () => {
     assert.strictEqual(res.status, 406, `Expected 406, got ${res.status}`);
     const body = await res.json();
     assert.ok(body.error, "Expected error in response body");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    process.env.AUTOMEM_API_TOKEN = prevToken;
+    process.env.AUTOMEM_API_URL = prevEndpoint;
+  }
+});
+
+test("POST /mcp without a caller token returns 401 even when AUTOMEM_API_TOKEN is set", async () => {
+  const prevToken = process.env.AUTOMEM_API_TOKEN;
+  const prevEndpoint = process.env.AUTOMEM_API_URL;
+  process.env.AUTOMEM_API_TOKEN = "test-token";
+  process.env.AUTOMEM_API_URL = "http://127.0.0.1:8001";
+
+  const app = createApp();
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, "127.0.0.1", () => resolve(s));
+  });
+
+  try {
+    const port = server.address().port;
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    await res.body?.cancel();
+    assert.strictEqual(res.status, 401);
+
+    const sse = await fetch(`http://127.0.0.1:${port}/mcp/sse`, {
+      headers: { Accept: "text/event-stream" },
+    });
+    await sse.body?.cancel(); // a regression opens a stream; don't let it hang close()
+    assert.strictEqual(sse.status, 401);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     process.env.AUTOMEM_API_TOKEN = prevToken;
@@ -880,7 +917,7 @@ test("GET /mcp/sse returns an SSE stream and endpoint event", async () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/mcp/sse`, {
       signal: controller.signal,
-      headers: { Accept: "text/event-stream" },
+      headers: { Accept: "text/event-stream", Authorization: "Bearer test-token" },
     });
 
     assert.equal(res.status, 200);

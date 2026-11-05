@@ -1931,7 +1931,9 @@ function getAuthToken(req) {
       }
 
       const endpoint = process.env.AUTOMEM_API_URL || process.env.AUTOMEM_ENDPOINT || 'http://127.0.0.1:8001';
-      const token = getAuthToken(req) || process.env.AUTOMEM_API_TOKEN;
+      // Fork patch: the caller must present its own token. Falling back to
+      // AUTOMEM_API_TOKEN let any client that reached /mcp act as the owner.
+      const token = getAuthToken(req);
       if (!token) {
         return res.status(401).json({ error: 'Missing API token (use Authorization: Bearer, X-API-Key, or ?api_key=)' });
       }
@@ -1970,7 +1972,7 @@ function getAuthToken(req) {
   app.get('/mcp/sse', async (req, res) => {
   try {
     const endpoint = process.env.AUTOMEM_API_URL || process.env.AUTOMEM_ENDPOINT || 'http://127.0.0.1:8001';
-    const token = getAuthToken(req) || process.env.AUTOMEM_API_TOKEN;
+    const token = getAuthToken(req); // no env fallback, see /mcp above
     if (!endpoint) return res.status(500).json({ error: 'AUTOMEM_API_URL not configured' });
     if (!token) return res.status(401).json({ error: 'Missing API token (use Authorization: Bearer, X-API-Key, or ?api_key=)' });
 

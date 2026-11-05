@@ -38,7 +38,7 @@ async function withSseSession(t, run) {
   let response;
   try {
     const endpoint = await new Promise((resolve, reject) => {
-      request = http.get(`http://127.0.0.1:${port}/mcp/sse`, (res) => {
+      request = http.get(`http://127.0.0.1:${port}/mcp/sse`, { headers: { Authorization: 'Bearer sse-test-token' } }, (res) => {
         response = res;
         assert.equal(res.statusCode, 200);
         let buffer = '';
